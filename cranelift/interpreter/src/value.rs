@@ -632,17 +632,13 @@ impl DataValueExt for DataValue {
     fn srem(self, other: Self) -> ValueResult<Self> {
         let denominator = other.clone().into_int_signed()?;
 
-        // Check if we are dividing INT_MIN / -1. This causes an integer overflow trap.
-        let min = DataValueExt::int(1i128 << (self.ty().bits() - 1), self.ty())?;
-        if self == min && denominator == -1 {
-            return Err(ValueError::IntegerOverflow);
-        }
-
         if denominator == 0 {
             return Err(ValueError::IntegerDivisionByZero);
         }
 
-        binary_match!(%(&self, &other); [I8, I16, I32, I64, I128])
+        // `INT_MIN % -1` is 0 rather than a trap, so use `wrapping_rem` to
+        // avoid Rust's overflow panic for that case.
+        binary_match!(wrapping_rem(&self, &other); [I8, I16, I32, I64, I128])
     }
 
     fn urem(self, other: Self) -> ValueResult<Self> {
